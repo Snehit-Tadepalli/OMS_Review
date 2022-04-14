@@ -6,5 +6,4 @@ module.exports = [
   // "relation/4023053", // Only members changed
   // "relation/4773058" // Both tags & members changed
   // ***************** Test cases end here ***************** //
-  "relation/13857566"
 ];
