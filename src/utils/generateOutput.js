@@ -349,7 +349,10 @@ const forVersionGreaterThan1 = async (output) => {
     }
 
     // Check for tag changes
-    if (previousVersion.tags.length === latestVersion.tags.length) {
+    if (
+      previousVersion.tags !== undefined &&
+      previousVersion.tags.length === latestVersion.tags.length
+    ) {
       const prevKeys = Object.keys(previousVersion.tags).sort();
       const prevValues = Object.values(previousVersion.tags).sort();
       const latestKeys = Object.keys(latestVersion.tags).sort();
