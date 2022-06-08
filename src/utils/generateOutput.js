@@ -1,5 +1,6 @@
 const scraper = require("../scraper");
 const distance = require("../distance");
+const { countryName } = require("../config");
 
 const getCoordinates = async (members) => {
   let node = members.filter((item) => item.split("/")[0] === "node");
@@ -23,16 +24,18 @@ const getCoordinates = async (members) => {
 };
 
 const getCountry = async (obj) => {
+  if (!countryName) return "";
+
   if (obj.lat === -1 && obj.lon === -1) {
-    return `Failed to get country name`;
+    return ` Failed to get country name,`;
   }
 
   const url = `https://nominatim.openstreetmap.org/reverse?lat=${obj.lat}&lon=${obj.lon}&format=json&addressdetails=1`;
   const response = await fetch(url);
-  if (response.status !== 200) return `Unable to read country name`;
+  if (response.status !== 200) return ` Unable to read country name,`;
   const data = [await response.json()];
-  if (data.length > 0) return data[0].address.country;
-  return `Failed to get country name`;
+  if (data.length > 0) return ` ${data[0].address.country},`;
+  return ` Failed to get country name,`;
 };
 
 const fetch = (...args) =>
@@ -193,36 +196,62 @@ const checkTagChanges = async (prevTags, newTags) => {
 
 const forVersion1 = async (output) => {
   // For node and way
-  if (output.type === "node" || output.type === "way") {
-    return `${output.type}/${output.id}, is of v1`;
+  if (output.type === "node") {
+    let country = "";
+    if (countryName) {
+      country = await getCountry({
+        lat: output.lat,
+        lon: output.lon
+      });
+    }
+    return `${output.type}/${output.id},${country} is of v1`;
+  }
+
+  if (output.type === "way") {
+    let country = "";
+    if (countryName) {
+      const coordinates = await getCoordinates([`node/${output.nodes[0]}`]);
+      country = await getCountry(coordinates);
+    }
+    return `${output.type}/${output.id},${country} is of v1`;
   }
 
   // For relation
   if (output.type === "relation") {
+    let country = "";
+    if (countryName) {
+      const members = output.members.map((item) => `${item.type}/${item.ref}`);
+      const coordinates = await getCoordinates(members);
+      country = await getCountry(coordinates);
+    }
+
     if (output.tags.type === "multipolygon") {
-      return `${output.type}/${output.id}, is of v${output.version} and is of type multipolygon`;
+      return `${output.type}/${output.id},${country} is of v${output.version} and is of type multipolygon`;
     }
 
     const scraperOutput = await scraper(+output.id);
 
     if (scraperOutput === 1) {
-      return `${output.type}/${output.id}, is of v${output.version} and the status is good`;
+      return `${output.type}/${output.id},${country} is of v${output.version} and the status is good`;
     }
 
     if (scraperOutput === 0) {
-      return `${output.type}/${output.id}, is of v${output.version} and the status is bad`;
+      return `${output.type}/${output.id},${country} is of v${output.version} and the status is bad`;
     }
 
-    return `${output.type}/${output.id}, Relation analyzer failed to respond`;
+    return `${output.type}/${output.id},${country} Relation analyzer failed to respond`;
   }
 };
 
 const forVersionGreaterThan1 = async (output) => {
   // For relation
   if (output.type === "relation") {
-    const members = output.members.map((item) => `${item.type}/${item.ref}`);
-    const coordinates = await getCoordinates(members);
-    const country = await getCountry(coordinates);
+    let country = "";
+    if (countryName) {
+      const members = output.members.map((item) => `${item.type}/${item.ref}`);
+      const coordinates = await getCoordinates(members);
+      country = await getCountry(coordinates);
+    }
 
     const url = `https://api.openstreetmap.org/api/0.6/${
       output.type
@@ -292,28 +321,31 @@ const forVersionGreaterThan1 = async (output) => {
     }
 
     if (output.tags.type === "multipolygon") {
-      return `${output.type}/${output.id}, ${country}, is of v${output.version}, ${tagAndMemberChanges}, type is multipolygon`;
+      return `${output.type}/${output.id},${country} is of v${output.version}, ${tagAndMemberChanges}, type is multipolygon`;
     }
 
     const scraperOutput = await scraper(+output.id);
 
     if (scraperOutput === 1) {
-      return `${output.type}/${output.id}, ${country}, is of v${output.version}, ${tagAndMemberChanges}, status is good`;
+      return `${output.type}/${output.id},${country} is of v${output.version}, ${tagAndMemberChanges}, status is good`;
     }
 
     if (scraperOutput === 0) {
-      return `${output.type}/${output.id}, ${country}, is of v${output.version}, ${tagAndMemberChanges}, status is bad`;
+      return `${output.type}/${output.id},${country} is of v${output.version}, ${tagAndMemberChanges}, status is bad`;
     }
 
-    return `${output.type}/${output.id}, ${country}, Relation analyzer failed to respond`;
+    return `${output.type}/${output.id},${country} Relation analyzer failed to respond`;
   }
 
   // for node
   if (output.type === "node") {
-    const country = await getCountry({
-      lat: output.lat,
-      lon: output.lon
-    });
+    let country = "";
+    if (countryName) {
+      country = await getCountry({
+        lat: output.lat,
+        lon: output.lon
+      });
+    }
 
     const url = `https://api.openstreetmap.org/api/0.6/${
       output.type
@@ -347,24 +379,27 @@ const forVersionGreaterThan1 = async (output) => {
     }`;
 
     if (distanceCalc <= 0 && tagsChanged !== null && duplicateStatus !== "") {
-      return `${output.type}/${output.id}, ${country}, is of v${itemsArr.length} and ${tagsChanged}${duplicateStatus}`;
+      return `${output.type}/${output.id},${country} is of v${itemsArr.length} and ${tagsChanged}${duplicateStatus}`;
     }
 
     if (distanceCalc <= 100 && tagsChanged !== null && duplicateStatus !== "") {
-      return `${output.type}/${output.id}, ${country}, is of v${itemsArr.length}, [place: ${placeType}] is moved for ${distanceCalc}m (within Threshold) and ${tagsChanged}${duplicateStatus}`;
+      return `${output.type}/${output.id},${country} is of v${itemsArr.length}, [place: ${placeType}] is moved for ${distanceCalc}m (within Threshold) and ${tagsChanged}${duplicateStatus}`;
     }
 
     if (distanceCalc > 100 && tagsChanged !== null && duplicateStatus !== "") {
-      return `${output.type}/${output.id}, ${country}, is of v${itemsArr.length}, [place: ${placeType}] moved for ${distanceCalc}m and ${tagsChanged}${duplicateStatus}`;
+      return `${output.type}/${output.id},${country}, is of v${itemsArr.length}, [place: ${placeType}] moved for ${distanceCalc}m and ${tagsChanged}${duplicateStatus}`;
     }
 
-    return `${output.type}/${output.id}, ${country}, is of v${itemsArr.length}, need to investigate`;
+    return `${output.type}/${output.id},${country} is of v${itemsArr.length}, need to investigate`;
   }
 
   // For way
   if (output.type === "way") {
-    const coordinates = await getCoordinates([`node/${output.nodes[0]}`]);
-    const country = await getCountry(coordinates);
+    let country = "";
+    if (countryName) {
+      const coordinates = await getCoordinates([`node/${output.nodes[0]}`]);
+      country = await getCountry(coordinates);
+    }
 
     const url = `https://api.openstreetmap.org/api/0.6/${
       output.type
@@ -420,18 +455,18 @@ const forVersionGreaterThan1 = async (output) => {
     }
 
     if (nodesChanged && tagsChanged) {
-      return `${output.type}/${output.id}, ${country}, is of v${output.version}, both tags & geometry are changed`;
+      return `${output.type}/${output.id},${country} is of v${output.version}, both tags & geometry are changed`;
     }
 
     if (tagsChanged) {
-      return `${output.type}/${output.id}, ${country}, is of v${output.version}, only tags changed`;
+      return `${output.type}/${output.id},${country} is of v${output.version}, only tags changed`;
     }
 
     if (nodesChanged) {
-      return `${output.type}/${output.id}, ${country}, is of v${output.version}, only geometry changed`;
+      return `${output.type}/${output.id},${country} is of v${output.version}, only geometry changed`;
     }
 
-    return `${output.type}/${output.id}, ${country}, is of v${output.version} need to investigate`;
+    return `${output.type}/${output.id},${country} is of v${output.version} need to investigate`;
   }
 };
 
