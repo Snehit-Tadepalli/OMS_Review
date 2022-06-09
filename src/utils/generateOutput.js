@@ -524,6 +524,13 @@ const generateOutput = async (features) => {
     return;
   }
 
+  if (countryName && features.length > 10) {
+    console.log(`Current request has ${features.count} issues.`);
+    return console.log(
+      "Requesting issues should be lessthan 10 when country names settin gis ON."
+    );
+  }
+
   const [relations, nodes, ways] = await checkInputTypes(features);
 
   console.log(
