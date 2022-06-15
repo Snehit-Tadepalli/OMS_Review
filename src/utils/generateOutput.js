@@ -537,9 +537,9 @@ const generateOutput = async (features) => {
     `Your are requesting ${relations} relation(s), ${nodes} node(s), ${ways} way(s)`
   );
 
-  if (relations >= 25 || nodes >= 25) {
+  if (relations >= 15 || nodes >= 15) {
     return console.log(
-      `Relations & Nodes should be lessthan 25 for optimizaion.`
+      `Relations & Nodes together should be lessthan 25 for optimizaion.`
     );
   }
 
